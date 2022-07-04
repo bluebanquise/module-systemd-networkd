@@ -36,7 +36,8 @@ class Networkd(object):
             network.append("DHCP=True")
         elif self.method4 == "manual":
             network.append("[Address]")
-            network.append("Address=" + self.ip4)
+            for ip in self.ip4:
+                network.append("Address=" + ip)
         return network
 
 def main():
@@ -92,13 +93,22 @@ def main():
         elif networkd.state == 'present':
             network = networkd.generate_networks()
             network_file = "/etc/systemd/network/" + networkd.conn_name +".network"
+            changed = 0
             if os.path.exists(network_file):
                 with open("/etc/systemd/network/" + networkd.conn_name +".network") as f:
                     network_lines = f.readlines()
-                changed = 0
-                for i in range(0,len(network),1):
-                    if network[i] != network_lines[i]:
-                        changed = 1
+                print("HAHAHA1" + str(changed))
+                if len(network) != len(network_lines):
+                    changed = 1
+                    print("HAHAHA2" + str(changed))
+                else:
+                    print("HAHAHA" + str(changed))
+                    for i in range(0,len(network),1):
+                        print(">" + network[i] + "< COUCOU >" + network_lines[i] + "<")
+                        if network[i] != network_lines[i].replace("\n", ""):
+                            changed = 1
+                            print("FAULTY" + str(network[i]))
+                    print("HAHAHA" + str(changed))
             else:
                 changed = 1
             f = open(network_file, "w")
