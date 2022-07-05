@@ -24,20 +24,44 @@ class Networkd(object):
         self.ifname = module.params['ifname']
         self.type = module.params['type']
         self.ip4 = module.params['ip4']
+        self.gw4 = module.params['gw4']
+        self.routes4 = module.params['routes4']
+        self.dns4 = module.params['dns4']
         self.method4 = module.params['method4']
 
     def generate_networks(self):
         network = []
+
+        # MATCH
         network.append("[Match]")
         if self.ifname is not None: 
             network.append("Name=" + self.ifname)
+
+        # NETWORK
         network.append("[Network]")
         if self.method4 == "auto":
             network.append("DHCP=True")
-        elif self.method4 == "manual":
+        for dns4 in self.dns4:
+            network.append("DNS=" + dns4)
+
+        # ADDRESS
+        if self.method4 == "manual":
             network.append("[Address]")
-            for ip in self.ip4:
-                network.append("Address=" + ip)
+            for ip4 in self.ip4:
+                network.append("Address=" + ip4)
+
+        # ADDRESS
+        if self.gw4 is not None:
+            network.append("[Route]")
+            network.append("Gateway=" + self.gw4)
+
+        for route4 in self.routes4:
+            network.append("[Route]")
+            network.append("Destination=" + route4.split(' ')[0])
+            network.append("Gateway=" + route4.split(' ')[1])
+            if len(route4.split(' ') > 2):
+                network.append("Metric=" + route4.split(' ')[2])
+
         return network
 
 def main():
@@ -70,6 +94,9 @@ def main():
                           'vpn',
                       ]),
             ip4=dict(type='list', elements='str'),
+            gw4=dict(type='str'),
+            routes4=dict(type='list', elements='str'),
+            dns4=dict(type='list', elements='str'),
             method4=dict(type='str', choices=['auto', 'link-local', 'manual', 'shared', 'disabled']),
         ),
         mutually_exclusive=[],
@@ -82,6 +109,8 @@ def main():
 
     (rc, out, err) = (None, '', '')
     result = {'conn_name': networkd.conn_name, 'state': networkd.state}
+    changed = 0
+
 
     # check for issues
     if networkd.conn_name is None:
@@ -91,24 +120,19 @@ def main():
         if networkd.state == 'absent':
             print("COUCOU Absent")
         elif networkd.state == 'present':
+            # Generate Network file
             network = networkd.generate_networks()
+            # Read current Network file if exist and compare if changes
             network_file = "/etc/systemd/network/" + networkd.conn_name +".network"
-            changed = 0
             if os.path.exists(network_file):
                 with open("/etc/systemd/network/" + networkd.conn_name +".network") as f:
                     network_lines = f.readlines()
-                print("HAHAHA1" + str(changed))
                 if len(network) != len(network_lines):
                     changed = 1
-                    print("HAHAHA2" + str(changed))
                 else:
-                    print("HAHAHA" + str(changed))
                     for i in range(0,len(network),1):
-                        print(">" + network[i] + "< COUCOU >" + network_lines[i] + "<")
                         if network[i] != network_lines[i].replace("\n", ""):
                             changed = 1
-                            print("FAULTY" + str(network[i]))
-                    print("HAHAHA" + str(changed))
             else:
                 changed = 1
             f = open(network_file, "w")
