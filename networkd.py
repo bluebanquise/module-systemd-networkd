@@ -118,7 +118,8 @@ def main():
 
     try:
         if networkd.state == 'absent':
-            print("COUCOU Absent")
+            # Simply check no files are associated with this conn_name
+            print("Absent")
         elif networkd.state == 'present':
             # Generate Network file
             network = networkd.generate_networks()
