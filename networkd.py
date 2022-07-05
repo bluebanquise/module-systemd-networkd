@@ -41,8 +41,9 @@ class Networkd(object):
         network.append("[Network]")
         if self.method4 == "auto":
             network.append("DHCP=True")
-        for dns4 in self.dns4:
-            network.append("DNS=" + dns4)
+        if self.dns4 is not None:
+            for dns4 in self.dns4:
+                network.append("DNS=" + dns4)
 
         # ADDRESS
         if self.method4 == "manual":
@@ -54,13 +55,13 @@ class Networkd(object):
         if self.gw4 is not None:
             network.append("[Route]")
             network.append("Gateway=" + self.gw4)
-
-        for route4 in self.routes4:
-            network.append("[Route]")
-            network.append("Destination=" + route4.split(' ')[0])
-            network.append("Gateway=" + route4.split(' ')[1])
-            if len(route4.split(' ') > 2):
-                network.append("Metric=" + route4.split(' ')[2])
+        if self.routes4 is not None:
+            for route4 in self.routes4:
+                network.append("[Route]")
+                network.append("Destination=" + route4.split(' ')[0])
+                network.append("Gateway=" + route4.split(' ')[1])
+                if len(route4.split(' ')) > 2:
+                    network.append("Metric=" + route4.split(' ')[2])
 
         return network
 
@@ -136,11 +137,19 @@ def main():
                             changed = 1
             else:
                 changed = 1
-            f = open(network_file, "w")
-            for it in network:
-                f.write(it + "\n")
-            f.close()
-                  
+
+            # Write configuration if changes detected
+            if changed == 1:
+                f = open(network_file, "w")
+                for it in network:
+                    f.write(it + "\n")
+                f.close()
+
+            # Post actions
+            if changed == 1:
+                stdout, stderr = subprocess.Popen("networkctl reload", stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True).communicate()
+                stdout, stderr = subprocess.Popen("networkctl reconfigure " + self.conn_name, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True).communicate()
+
     except NetworkdModuleError as e:
         module.fail_json(name=networkd.conn_name, msg=str(e))
 
